@@ -30,7 +30,7 @@ import io
 df = pd.read_csv(io.StringIO(dane_txt),  sep = '\t', index_col = (0))
 df.index.name = 'ID'
 df = df.sort_values(by = 'D', ascending = False)
-print('Dane: -----------------------------\n', df.to_string(),'\n')
+print('Data frame: -----------------------------\n', df.to_string(),'\n')
 
 from dataclasses import dataclass, asdict, astuple
 
@@ -56,7 +56,7 @@ for i in R:
             
 R = sorted(R, key = lambda R: R.D, reverse=True)
 
-print('\nPierścienie: -----------------------------\n')
+print('\nRings: -----------------------------\n')
 for j, r in enumerate(R):
     print(j, r)
 
@@ -78,8 +78,8 @@ for k in range(1, len(R)):
         CR[k] = []
         d[k] = R[k].d
 
-print('\nGrupy: -----------------------------')
-print('j   D wewn. pierscienie')
+print('\nNesting rings: -----------------------------')
+print('j   Inside diam. rings')
 for j in CR.keys():
     print(j, R[j].D, CR[j])
    
@@ -122,40 +122,37 @@ class Circle:
 # Create list of circles
 C = [Circle(j=j, D=R[j].D) for j in CR.keys()]
 
-# Sortowanie koljenośći przydzielania okregów
 C = sorted(C, key = lambda C: C.D, reverse=True)
 
-# Przydział pierszego okręgu
+# Arbitary assign first circle
 C[0].x = int(C[0].R)  
 C[0].y = int(C[0].R)
 
-H = 1000 # Szerokość płyty
-Q_results = 200 # Liczba rozwiązań dopuszczalnych
+H = 1000 # Sheet height
+Q_results = 200 # Required quantity of correct solutions  
 
-# Przydzielane okregi
+# Assigning cirlcles
 for g in range(1,len(C)):
     nest_fact = 0
     i = 0
             
-    # Rozwiązania dopuszczalne
+    # Correct solutions  
     while i < Q_results:          
         temp_L = 0
         C_area = 0
-          
-        # Obliczenie najdalej wysunietego punktu x należącego
-        # do przydzielonych okręgów
+               
         for c in C:                
             if c.Cir_assign():
                 if c.Cir_x_max() > temp_L:
                     temp_L = c.Cir_x_max()       
 
-        # Losowanie wsp. x i y   
+        # Randomize corr. x and y   
         xrand = rnd.randint(C[g].R, temp_L +  C[g].R)
         yrand = rnd.randint(C[g].R, H - C[g].R)
                         
         O_lap, flag = 0, 0
    
-        # Sprawdzenie czy okręgi się nakładają                    
+        # Overlapping checking              
         for c in C:
             if c.Cir_assign():
                 O_lap+=1
@@ -175,16 +172,16 @@ for g in range(1,len(C)):
     C[g].x = x_
     C[g].y = y_
     
-# Obliczenie zapotrzebowania płyty 
+# Needed lenght of sheet
 L = max([(c.x+c.R) for c in C] )
 C = sorted(C, key = lambda C: C.j)
 
-print('\nKoła -----------------------------')
+print('\nCircles -----------------------------')
 pprint(C)
-print('\nRozwiązanie-----------------------------')
+print('\nSolution-----------------------------')
 print( 'L = ',L)
 
-# Utworzenie listy wyników przydziału 
+# Result list
 Res=[Ring(j=n, ID=R[n].ID, d=R[n].d,  D=R[n].D,  Q=R[n].Q, x = 0, y = 0)
      for n in range(len(R))]
 
@@ -203,7 +200,7 @@ for r in Res:
 for t in range(len(Res)):    
     print(Res[t])
    
-#%% Grafika plt      
+#%% Image plt      
 
 import matplotlib as mpl      
 import matplotlib.pyplot as plt
@@ -219,22 +216,22 @@ ax.plot()
 
 ax.axis([0, L, 0, H]) 
 
-# Przedstawienie wyników przydziału w postaci rastrowej
+# Graphic results (raster)
 for r in Res:
     ax.add_patch(Circle((r.x, r.y), r.D / 2, 
                         edgecolor='red', facecolor='gray'))
     ax.add_patch(Circle((r.x, r.y), r.d / 2, 
                         edgecolor='green', facecolor='white'))
  
-plt.savefig('rozw.png', format='png', dpi=100)
+plt.savefig('solution.png', format='png', dpi=100)
 plt.show()
 
-#%% Grafika dxf
+#%% Image dxf
 
 from ezdxf.addons import r12writer
     
-# Przedstawienie wyników przydziału w postaci wektorowej
-with r12writer("rozw.dxf") as doc:
+# Graphic results (vector)
+with r12writer("solution.dxf") as doc:
     for r in Res:
         doc.add_circle((r.x,r.y), r.d/2,color=3 )
         doc.add_circle((r.x,r.y), r.D/2,color=10)

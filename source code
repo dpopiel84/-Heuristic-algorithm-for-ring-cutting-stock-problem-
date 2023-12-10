@@ -1,0 +1,248 @@
+
+# Cutting rings on rectangle sheet
+import time
+import sys
+import math
+import random
+import numpy as np
+from pprint import pprint
+
+seed = 1
+rnd = random.Random(seed)
+
+#%% Data frame
+dane_txt = """
+	d	D	Q
+G	324	378	5
+B	273	329	4
+C	169	218	6
+A	89	142	2
+E	77	127	8
+D	61	107	3
+F	49	92	8
+H	34	71	4
+"""
+
+
+import pandas as pd
+import io 
+
+df = pd.read_csv(io.StringIO(dane_txt),  sep = '\t', index_col = (0))
+df.index.name = 'ID'
+df = df.sort_values(by = 'D', ascending = False)
+print('Dane: -----------------------------\n', df.to_string(),'\n')
+
+from dataclasses import dataclass, asdict, astuple
+
+@dataclass
+class Ring:    
+    ID: str
+    d: int
+    D: int
+    Q: int
+    x: int = 0
+    y: int = 0
+    j: int = 0
+    
+# Create list of rings
+R = [Ring(ID=r[0], d=r[1].d, D=r[1].D, Q=r[1].Q) 
+              for r in df.iterrows()]
+
+for i in R:
+    if i.Q > 1:
+        for k in range (i.Q - 1):
+            i.Q = 1
+            R.insert(0,i)
+            
+R = sorted(R, key = lambda R: R.D, reverse=True)
+
+print('\nPierścienie: -----------------------------\n')
+for j, r in enumerate(R):
+    print(j, r)
+
+#%% Nest rings 
+    
+CR = {0: []} # Powiązanie Circles-Rings
+d = {0: R[0].d}
+
+# Create groups of nested rings
+for k in range(1, len(R)):
+    Found = False
+    for j in CR.keys():
+        if d[j] > R[k].D:
+            CR[j].append(k)
+            d[j] = R[k].d
+            Found = True
+            break
+    if not Found:
+        CR[k] = []
+        d[k] = R[k].d
+
+print('\nGrupy: -----------------------------')
+print('j   D wewn. pierscienie')
+for j in CR.keys():
+    print(j, R[j].D, CR[j])
+   
+    
+@dataclass(init=True)
+class Circle:
+    j: int
+    D: int 
+    R: int
+    P: int
+    x: int 
+    y: int 
+  
+    def __init__(self, j: int, D: int):
+        self.j = j
+        self.D = D
+        self.R = math.ceil(D / 2)
+        self.P = np.pi * self.R**2
+        self.x = x = 0
+        self.y = y = 0
+
+    def Cir_assign(self):
+        """Check is circle assign""" 
+        if self.x != 0:
+            return True
+       
+    def Cir_x_max(self):
+        """Return maximum x value"""
+        return self.x + self.R
+            
+    def Distance(self, x, y):
+                                
+        """Euklidean distance between two circle"""   
+        
+        return np.sqrt((self.x - x)**2 + (self.y - y)**2)
+
+
+#%% Main procedure
+
+# Create list of circles
+C = [Circle(j=j, D=R[j].D) for j in CR.keys()]
+
+# Sortowanie koljenośći przydzielania okregów
+C = sorted(C, key = lambda C: C.D, reverse=True)
+
+# Przydział pierszego okręgu
+C[0].x = int(C[0].R)  
+C[0].y = int(C[0].R)
+
+H = 1000 # Szerokość płyty
+Q_results = 200 # Liczba rozwiązań dopuszczalnych
+
+# Przydzielane okregi
+for g in range(1,len(C)):
+    nest_fact = 0
+    i = 0
+            
+    # Rozwiązania dopuszczalne
+    while i < Q_results:          
+        temp_L = 0
+        C_area = 0
+          
+        # Obliczenie najdalej wysunietego punktu x należącego
+        # do przydzielonych okręgów
+        for c in C:                
+            if c.Cir_assign():
+                if c.Cir_x_max() > temp_L:
+                    temp_L = c.Cir_x_max()       
+
+        # Losowanie wsp. x i y   
+        xrand = rnd.randint(C[g].R, temp_L +  C[g].R)
+        yrand = rnd.randint(C[g].R, H - C[g].R)
+                        
+        O_lap, flag = 0, 0
+   
+        # Sprawdzenie czy okręgi się nakładają                    
+        for c in C:
+            if c.Cir_assign():
+                O_lap+=1
+                if (c.D /2) + (C[g].D /2) <= c.Distance(xrand,yrand):
+                    flag+=1                      
+           
+        if O_lap == flag:
+            
+            C_area = C_area + c.P
+            sheet_temp_area = H * max(temp_L,(xrand + C[g].R))
+            i += 1
+            if C_area / sheet_temp_area > nest_fact:
+                nest_fact = C_area / sheet_temp_area
+                x_ = xrand
+                y_ = yrand     
+                       
+    C[g].x = x_
+    C[g].y = y_
+    
+# Obliczenie zapotrzebowania płyty 
+L = max([(c.x+c.R) for c in C] )
+C = sorted(C, key = lambda C: C.j)
+
+print('\nKoła -----------------------------')
+pprint(C)
+print('\nRozwiązanie-----------------------------')
+print( 'L = ',L)
+
+# Utworzenie listy wyników przydziału 
+Res=[Ring(j=n, ID=R[n].ID, d=R[n].d,  D=R[n].D,  Q=R[n].Q, x = 0, y = 0)
+     for n in range(len(R))]
+
+
+for r in Res:
+    for c in C:
+        if r.j == c.j:
+             r.x,r.y = c.x,c.y
+for r in Res:
+    for m in CR.values():
+        if r.j in m:
+            
+            k = (list(CR.keys())[list(CR.values()).index(m)])
+            r.x,r.y = Res[k].x,Res[k].y
+            
+for t in range(len(Res)):    
+    print(Res[t])
+   
+#%% Grafika plt      
+
+import matplotlib as mpl      
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+from matplotlib.patches import Circle
+
+fig, ax = plt.subplots() 
+
+unit = 0.003 # skala rysunku 
+fig.set_figheight(H*unit)
+fig.set_figwidth(L*unit)
+ax.plot()
+
+ax.axis([0, L, 0, H]) 
+
+# Przedstawienie wyników przydziału w postaci rastrowej
+for r in Res:
+    ax.add_patch(Circle((r.x, r.y), r.D / 2, 
+                        edgecolor='red', facecolor='gray'))
+    ax.add_patch(Circle((r.x, r.y), r.d / 2, 
+                        edgecolor='green', facecolor='white'))
+ 
+plt.savefig('rozw.png', format='png', dpi=100)
+plt.show()
+
+#%% Grafika dxf
+
+from ezdxf.addons import r12writer
+    
+# Przedstawienie wyników przydziału w postaci wektorowej
+with r12writer("rozw.dxf") as doc:
+    for r in Res:
+        doc.add_circle((r.x,r.y), r.d/2,color=3 )
+        doc.add_circle((r.x,r.y), r.D/2,color=10)
+        doc.add_text(r.ID + str(r.d)+'x'+str(r.D) ,(r.x,r.y+(r.d/2)+((r.D-r.d)/4)),\
+                         height=2.5,width=1,align='MIDDLE_CENTER')
+    
+    doc.add_line((0,0),(L,0),color=5)
+    doc.add_line((0,H),(L,H),color=5)
+    doc.add_line((0,0),(0,H),color=5)
+    doc.add_line((L,0),(L,H),color=5)
+
